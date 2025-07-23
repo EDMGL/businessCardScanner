@@ -1,0 +1,20 @@
+public with sharing class OCRTestCallout {
+      @future(callout=true)
+      public static void sendTestRequest() {
+          HttpRequest req = new HttpRequest();
+          req.setEndpoint('https://d1bdd40d0c4a.ngrok-free.app/ocr'); // ngrok adresin
+          req.setMethod('POST');
+          req.setHeader('Content-Type', 'application/json');
+          req.setBody('{"test":"deneme"}'); // Basit test body’si
+  
+          Http http = new Http();
+          HttpResponse res;
+          try {
+              res = http.send(req);
+              System.debug('Status: ' + res.getStatus());
+              System.debug('Body: ' + res.getBody());
+          } catch (Exception e) {
+              System.debug('Hata: ' + e.getMessage());
+          }
+      }
+  }
