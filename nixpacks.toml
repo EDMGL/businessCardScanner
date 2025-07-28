@@ -1,19 +1,17 @@
 [phases.setup]
-nixPkgs = ["python3", "nodejs", "npm"]
+nixPkgs = ["python3", "nodejs"]
 
 [phases.install]
 cmds = [
   "npm install",
-  "pip3 install -r requirements.txt",
-  "python3 -m spacy download en_core_web_sm",
-  "python3 -m spacy download tr_core_news_sm",
-  "python3 -c \"import spacy; spacy.load('en_core_web_sm')\"",
-  "python3 -c \"import spacy; spacy.load('tr_core_news_sm')\"",
-  "mkdir -p tessdata && cp eng.traineddata tessdata/ || echo 'eng.traineddata not found, will download during runtime'"
+  "pip3 install -r requirements.txt"
 ]
 
 [phases.build]
-cmds = ["echo 'Build completed'"]
+cmds = [
+  "python3 -m spacy download en_core_web_sm",
+  "python3 -m spacy download tr_core_news_sm"
+]
 
 [start]
 cmd = "node ocrServer.js" 
