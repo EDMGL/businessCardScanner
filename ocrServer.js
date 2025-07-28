@@ -7,8 +7,18 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 
 const app = express();
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ 
+  dest: 'uploads/',
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  }
+});
 app.use(cors());
+
+// Health check endpoint
+app.get('/', (req, res) => {
+  res.json({ status: 'OK', message: 'OCR + NER API çalışıyor' });
+});
 
 function runNER(text) {
   return new Promise((resolve, reject) => {
@@ -65,6 +75,7 @@ app.post('/ocr', upload.single('image'), async (req, res) => {
   }
 });
 
-app.listen(3001, () => {
-  console.log('🟢 OCR + NER API http://localhost:3001 üzerinden çalışıyor');
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`🟢 OCR + NER API http://localhost:${PORT} üzerinden çalışıyor`);
 });

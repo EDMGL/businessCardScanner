@@ -7,6 +7,8 @@ import langdetect
 
 print("PYTHON PATH:", sys.executable, file=sys.stderr)
 
+text = sys.stdin.read()
+
 # Dil tespiti ve uygun spaCy modeli yükleme
 try:
     detected_lang = langdetect.detect(text)
