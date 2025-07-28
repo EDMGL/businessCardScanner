@@ -4,7 +4,6 @@ const multer = require('multer');
 const Tesseract = require('tesseract.js');
 const cors = require('cors');
 const fs = require('fs');
-const { spawn } = require('child_process');
 
 const app = express();
 const upload = multer({ 
@@ -17,37 +16,8 @@ app.use(cors());
 
 // Health check endpoint
 app.get('/', (req, res) => {
-  res.json({ status: 'OK', message: 'OCR + NER API çalışıyor' });
+  res.json({ status: 'OK', message: 'OCR API çalışıyor' });
 });
-
-function runNER(text) {
-  return new Promise((resolve, reject) => {
-    const py = spawn('python3', ['ner_parser.py']);
-    let data = '';
-
-    py.stdout.on('data', (chunk) => {
-      data += chunk.toString();
-    });
-
-    py.stderr.on('data', (err) => {
-      console.error('Python stderr:', err.toString());
-    });
-
-    py.on('close', (code) => {
-      if (code !== 0) {
-        return reject(new Error(`Python exited with code ${code}`));
-      }
-      try {
-        resolve(JSON.parse(data));
-      } catch (err) {
-        reject(err);
-      }
-    });
-
-    py.stdin.write(text);
-    py.stdin.end();
-  });
-}
 
 app.post('/ocr', upload.single('image'), async (req, res) => {
   const imagePath = req.file.path;
@@ -56,26 +26,65 @@ app.post('/ocr', upload.single('image'), async (req, res) => {
     const result = await Tesseract.recognize(imagePath, 'eng');
     const ocrText = result.data.text;
 
-    const nerResult = await runNER(ocrText);
+    // Basit regex ile bilgi çıkarma
+    const extractedInfo = extractInfoFromText(ocrText);
 
     fs.unlinkSync(imagePath);
     res.json({
       full_text: ocrText,
-      name: nerResult.name,
-      title: nerResult.title,
-      tel: nerResult.tel,
-      company: nerResult.company,
-      email: nerResult.email,
-      address: nerResult.address,
-      web: nerResult.web
+      ...extractedInfo
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'OCR or NER failed', details: err.message });
+    res.status(500).json({ error: 'OCR failed', details: err.message });
   }
 });
 
+function extractInfoFromText(text) {
+  const lines = text.split('\n');
+  const result = {
+    name: null,
+    title: null,
+    tel: null,
+    company: null,
+    email: null,
+    address: null,
+    web: null
+  };
+
+  // Email tespiti
+  const emailMatch = text.match(/[\w\.-]+@[\w\.-]+/);
+  if (emailMatch) {
+    result.email = emailMatch[0];
+  }
+
+  // Telefon tespiti
+  const phoneMatch = text.match(/(\+?\d{1,3}[\s-]?)?(\(?\d{3}\)?[\s-]?)?\d{2,4}[\s-]?\d{2,4}[\s-]?\d{2,4}/);
+  if (phoneMatch) {
+    result.tel = phoneMatch[0];
+  }
+
+  // Web sitesi tespiti
+  const webMatch = text.match(/(www\.|https?:\/\/)[^\s]+/);
+  if (webMatch) {
+    result.web = webMatch[0];
+  }
+
+  // İsim tespiti (basit yaklaşım)
+  for (const line of lines) {
+    const cleanLine = line.trim();
+    if (cleanLine && !cleanLine.includes('@') && !cleanLine.includes('www') && 
+        !cleanLine.includes('.com') && !/\d/.test(cleanLine) && 
+        cleanLine.split(' ').length >= 2 && cleanLine.split(' ').length <= 4) {
+      result.name = cleanLine;
+      break;
+    }
+  }
+
+  return result;
+}
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`🟢 OCR + NER API http://localhost:${PORT} üzerinden çalışıyor`);
+  console.log(`🟢 OCR API http://localhost:${PORT} üzerinden çalışıyor`);
 });
