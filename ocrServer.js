@@ -7,7 +7,7 @@ const fs = require('fs');
 
 const app = express();
 const upload = multer({ 
-  dest: 'uploads/',
+  dest: '/tmp/',
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
   }
@@ -20,23 +20,51 @@ app.get('/', (req, res) => {
 });
 
 app.post('/ocr', upload.single('image'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No image file uploaded' });
+  }
+
   const imagePath = req.file.path;
 
   try {
-    const result = await Tesseract.recognize(imagePath, 'eng');
+    console.log('Processing image:', imagePath);
+    
+    const result = await Tesseract.recognize(imagePath, 'eng', {
+      logger: m => console.log(m)
+    });
+    
     const ocrText = result.data.text;
+    console.log('OCR Text:', ocrText);
 
     // Basit regex ile bilgi çıkarma
     const extractedInfo = extractInfoFromText(ocrText);
 
-    fs.unlinkSync(imagePath);
+    // Dosyayı silmeyi dene, hata olursa görmezden gel
+    try {
+      fs.unlinkSync(imagePath);
+    } catch (unlinkErr) {
+      console.log('Could not delete file:', unlinkErr.message);
+    }
+
     res.json({
       full_text: ocrText,
       ...extractedInfo
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'OCR failed', details: err.message });
+    console.error('OCR Error:', err);
+    
+    // Dosyayı silmeyi dene
+    try {
+      fs.unlinkSync(imagePath);
+    } catch (unlinkErr) {
+      console.log('Could not delete file:', unlinkErr.message);
+    }
+    
+    res.status(500).json({ 
+      error: 'OCR failed', 
+      details: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 });
 
